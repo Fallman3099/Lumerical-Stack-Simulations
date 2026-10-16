@@ -1,0 +1,90 @@
+# This code plots minimum of reflection as a function of thin film thickness and prints out the angle at which the reflection is minimum. 
+# Knowing this can help with understanding the SPR response and the code can be adjusted to study various other multilayered systems. 
+
+clear();
+
+materials = cell(4);
+maters = cell(4);
+thickranges = cell(4);
+legends = cell(4);
+
+materials{1} = "Pd (Palladium) - Palik";
+maters{1} = "Palladium"; 
+thickranges{1} = linspace(10e-9, 25e-9, 512*6);
+legends{1} = "Pd (Palik)";
+
+materials{2} = "Fe (Iron) - Palik";
+maters{2} = "Iron"; 
+thickranges{2} = linspace(10e-9, 30e-9, 512*6);
+legends{2} = "Iron (Palik)";
+
+materials{3} = "Au (Gold) - Palik";
+maters{3} = "Gold"; 
+thickranges{3} = linspace(35e-9, 70e-9, 512*6);
+legends{3} = "Au (Palik)";
+
+materials{4} = "Al (Aluminium) - Palik";
+maters{4} = "Aluminium"; 
+thickranges{4} = linspace(5e-9, 20e-9, 512*6);
+legends{4} = "A1 (Palik)";
+
+# Angular range
+theta = linspace(50, 80, 1000); # angle vector in degrees
+f = c / 675e-9; # frequency corresponding to 675 nm
+
+# Initialize refractive index matrix: glass / metal / analyte
+n2 = matrix(3,1);
+n2(1,1) = 1.5435; # BAK3 Glass
+n2(2,1) = 1;      # Placeholder, will be set per material
+n2(3,1) = 1.3;    # Analyte
+
+# Loop over materials
+for (case = 1:4) {
+
+    material = materials{case};
+    mater = maters{case};
+    thickness_range = thickranges{case};
+
+    n2(2,1) = getindex(material, f);
+
+    Rmin_array = zeros(length(thickness_range));
+    rmin_array = zeros(length(thickness_range));
+    theta_at_rmin = zeros(length(thickness_range));
+
+    for (i = 1:length(thickness_range)) {
+        T = thickness_range(i);
+        d = [1e-6; T; 1e-6]; # Thickness stack: glass / metal / analyte
+
+        RT2 = stackrt(n2, d, f, theta);
+
+        rvals = abs(RT2.rp);   # Magnitude of reflection coefficient
+        rmin = min(rvals);     # Minimum |r|
+        idx = find(rvals == rmin); # Index where min occurs
+
+        Rmin_array(i) = RT2.Rp(idx);
+        rmin_array(i) = rmin;
+        theta_at_rmin(i) = theta(idx);
+    }
+
+    # Find global minimum safely
+    global_rmin = min(rmin_array);
+    min_idx = find(abs(rmin_array - global_rmin) < 1e-12);
+
+    theta_global_min = theta_at_rmin(min_idx);
+    thickness_global_min = thickness_range(min_idx) * 1e9;
+
+    ?"Material: " + mater;
+    ?"Global min |r(θ)| = " + num2str(global_rmin);
+    ?"θ at min |r(θ)| = " + num2str(theta_global_min) + "°";
+    ?"Thickness = " + num2str(thickness_global_min) + " nm";
+
+    plot(thickness_range * 1e9, rmin_array);
+    holdon;
+}
+
+legend("");
+legend(legends);
+
+setplot("x label", "Thickness (nm)");
+setplot("y label", "min of |r(θ)|");
+setplot("title", "Minimum Reflectance vs Thickness");
